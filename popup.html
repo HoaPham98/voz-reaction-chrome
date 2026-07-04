@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voz Reaction</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <h1 class="popup__title">Voz Reaction</h1>
+        <p class="popup__subtitle">Hiển thị reaction score trong pannel tác giả</p>
+      </header>
+
+      <section class="popup__section">
+        <label class="switch">
+          <input type="checkbox" id="enabled-toggle" />
+          <span class="switch__slider"></span>
+          <span class="switch__label">Bật tiện ích</span>
+        </label>
+      </section>
+
+      <section class="popup__section">
+        <p class="popup__hint">
+          Mở <code>voz.vn/t/&lt;slug&gt;.&lt;id&gt;</code> để xem reaction score trong pannel tác giả mỗi post. User có score âm sẽ bị viền đỏ + badge cảnh báo.
+        </p>
+      </section>
+
+      <footer class="popup__footer">
+        <span id="status" class="status">Sẵn sàng</span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
