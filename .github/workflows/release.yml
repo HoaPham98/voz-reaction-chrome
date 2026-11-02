@@ -1,0 +1,73 @@
+name: Release CRX (No Build)
+
+on:
+  push:
+    tags:
+      - 'v*' # 1. Tự động chạy khi push tag (vd: v1.0.0)
+  
+  workflow_dispatch: # 2. Cho phép bấm chạy bằng tay trên tab Actions
+    inputs:
+      version:
+        description: 'Version muốn release (vd: 1.0.2). Để trống nếu lấy từ manifest.json'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release-crx:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout source code
+        uses: actions/checkout@v4
+
+      - name: 2. Xác định Version và đồng bộ vào manifest.json
+        id: get_version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+            VERSION=${VERSION#v}
+          else
+            VERSION=$(jq -r '.version' manifest.json)
+          fi
+
+          echo "Selected version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+          # Cập nhật version vào manifest.json
+          jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp.json
+          mv manifest.tmp.json manifest.json
+
+      - name: 3. Lọc file và đóng gói .crx (Chuẩn CRX3)
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          
+          # Copy mã nguồn sang thư mục tạm, loại bỏ các file/thư mục không cần thiết
+          mkdir -p /tmp/ext-pkg
+          rsync -av --progress ./ /tmp/ext-pkg \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.gitignore' \
+            --exclude 'README.md' \
+            --exclude '*.pem' \
+            --exclude '*.crx'
+
+          # Xuất private key, đóng gói .crx và xóa key tạm
+          echo "$CRX_PRIVATE_KEY" > /tmp/key.pem
+          npx -y crx3 /tmp/ext-pkg -p /tmp/key.pem -o extension-v${VERSION}.crx
+          rm -rf /tmp/key.pem /tmp/ext-pkg
+
+      - name: 4. Tạo GitHub Release và đính kèm file .crx
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.tag }}
+          files: extension-*.crx
+          generate_release_notes: true
