@@ -43,13 +43,12 @@ jobs:
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp.json
           mv manifest.tmp.json manifest.json
 
-      - name: 3. Lọc file và đóng gói .crx (Chuẩn CRX3)
+      - name: 3. Lọc file và đóng gói cả .crx lẫn .zip
         env:
           CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           
-          # Copy mã nguồn sang thư mục tạm, loại bỏ các file/thư mục không cần thiết
           mkdir -p /tmp/ext-pkg
           rsync -av --progress ./ /tmp/ext-pkg \
             --exclude '.git' \
@@ -57,17 +56,26 @@ jobs:
             --exclude '.gitignore' \
             --exclude 'README.md' \
             --exclude '*.pem' \
-            --exclude '*.crx'
+            --exclude '*.crx' \
+            --exclude '*.zip'
 
-          # Xuất private key, đóng gói .crx và xóa key tạm
+          # 1. Tạo file .crx
           echo "$CRX_PRIVATE_KEY" > /tmp/key.pem
           npx -y crx3 /tmp/ext-pkg -p /tmp/key.pem -o extension-v${VERSION}.crx
+
+          # 2. Tạo thêm file .zip (dùng cho Load unpacked)
+          cd /tmp/ext-pkg
+          zip -r "$GITHUB_WORKSPACE/extension-unpacked-v${VERSION}.zip" .
+          cd "$GITHUB_WORKSPACE"
+
           rm -rf /tmp/key.pem /tmp/ext-pkg
 
-      - name: 4. Tạo GitHub Release và đính kèm file .crx
+      - name: 4. Tạo GitHub Release và đính kèm file
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: Release ${{ steps.get_version.outputs.tag }}
-          files: extension-*.crx
+          files: |
+            extension-*.crx
+            extension-unpacked-*.zip
           generate_release_notes: true
